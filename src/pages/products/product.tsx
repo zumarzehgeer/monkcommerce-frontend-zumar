@@ -32,59 +32,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RxCross2 } from "react-icons/rx";
 import DialogVariant from "@/pages/products/dialog-variant";
 import Variant from "@/pages/products/variants";
-
-const data = [
-  {
-    id: 77,
-    title: "Fog Linen Chambray Towel - Beige Stripe",
-    variants: [
-      {
-        id: 1,
-        product_id: 77,
-        title: "XS / Silver",
-        price: "49",
-      },
-      {
-        id: 2,
-        product_id: 77,
-        title: "S / Silver",
-        price: "49",
-      },
-      {
-        id: 3,
-        product_id: 77,
-        title: "M / Silver",
-        price: "49",
-      },
-    ],
-    image: {
-      id: 266,
-      product_id: 77,
-      src: "https://cdn11.bigcommerce.com/s-p1xcugzp89/products/77/images/266/foglinenbeigestripetowel1b.1647248662.386.513.jpg?c=1",
-    },
-  },
-  {
-    id: 80,
-    title: "Orbit Terrarium - Large",
-    variants: [
-      {
-        id: 64,
-        product_id: 80,
-        title: "Default Title",
-        price: "109",
-      },
-    ],
-    image: {
-      id: 272,
-      product_id: 80,
-      src: "https://cdn11.bigcommerce.com/s-p1xcugzp89/products/80/images/272/roundterrariumlarge.1647248662.386.513.jpg?c=1",
-    },
-  },
-];
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { getProducts } from "@/api/getProducts";
 
 export type SelectedItem = {
   id: number;
@@ -109,13 +62,41 @@ export default function Product({
   product: ProductData;
   onProductSelected?: (selectedItem: SelectedItem | null) => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const {
+    data,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    status,
+  } = useInfiniteQuery({
+    queryKey: ["products", searchQuery], // Now using searchQuery directly
+    queryFn: ({ pageParam }) => getProducts({ pageParam, searchQuery }), // Pass searchQuery directly
+    initialPageParam: 0,
+    getNextPageParam: (_lastPage, allPages) => {
+      if (1000 > allPages.length * 10) {
+        return allPages.length + 1;
+      } else {
+        return undefined;
+      }
+    },
+  });
+
+  const queryClient = useQueryClient();
+  const handleSearchChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newQuery = e.target.value;
+    setSearchQuery(newQuery);
+    await queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
+
   const [showDiscount, setShowDiscount] = useState(false);
   const controls = useDragControls();
 
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(
     product.selectedItem || null
   );
-
   const [selectedProductId, setSelectedProductId] = useState<number | null>(
     selectedItem?.id || null
   );
@@ -132,28 +113,27 @@ export default function Product({
       return;
     }
 
-    const productData = data.find((p) => p.id === selectedProductId);
+    // Find the selected product from the data
+    let foundProduct = null;
 
-    if (productData) {
-      const productWithSelectedVariants = {
-        ...productData,
-        variants: productData.variants.filter((v) =>
-          selectedVariantIds.includes(v.id)
-        ),
-      };
+    data?.pages.forEach((page) => {
+      const found = page.find((p: SelectedItem) => p.id === selectedProductId);
+      if (found) {
+        foundProduct = found;
+      }
+    });
 
-      if (productWithSelectedVariants.variants.length > 0) {
-        setSelectedItem(productWithSelectedVariants);
+    if (foundProduct) {
+      setSelectedItem(foundProduct);
 
-        if (onProductSelected) {
-          onProductSelected(productWithSelectedVariants);
-        }
-      } else {
-        setSelectedItem(null);
+      if (onProductSelected) {
+        onProductSelected(foundProduct);
+      }
+    } else {
+      setSelectedItem(null);
 
-        if (onProductSelected) {
-          onProductSelected(null);
-        }
+      if (onProductSelected) {
+        onProductSelected(null);
       }
     }
   };
@@ -161,9 +141,17 @@ export default function Product({
   const handleProductSelect = (productId: number, checked: boolean) => {
     if (checked) {
       setSelectedProductId(productId);
-      const productVariants =
-        data.find((p) => p.id === productId)?.variants || [];
-      setSelectedVariantIds(productVariants.map((v) => v.id));
+      const productVariants = data?.pages.map((page) => {
+        return (
+          page.find((p: SelectedItem) => p.id === productId)?.variants || []
+        );
+      });
+
+      if (productVariants) {
+        setSelectedVariantIds(
+          productVariants[0].map((v: SelectedItem) => v.id)
+        );
+      }
     } else {
       setSelectedProductId(null);
       setSelectedVariantIds([]);
@@ -172,7 +160,7 @@ export default function Product({
 
   const handleVariantChange = (
     variantId: number,
-    productId: number,
+    _productId: number,
     isChecked: boolean
   ) => {
     if (isChecked) {
@@ -182,23 +170,51 @@ export default function Product({
     }
   };
 
-  // // Handle removing the selected product
-  // const handleRemoveProduct = () => {
-  //   setSelectedItem(null);
-  //   setSelectedProductId(null);
-  //   setSelectedVariantIds([]);
-
-  //   if (onProductSelected) {
-  //     onProductSelected(null);
-  //   }
-  // };
-
   const getTriggerText = () => {
     if (selectedItem) {
       return selectedItem.title;
     }
     return "Select Product";
   };
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+    if (hasNextPage) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          const [entry] = entries;
+          if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+            console.log("Loading more products from intersection observer");
+            fetchNextPage();
+          }
+        },
+        {
+          threshold: 0.1,
+          root: scrollContainerRef.current,
+          rootMargin: "100px",
+        }
+      );
+      if (loadMoreRef.current) {
+        observerRef.current.observe(loadMoreRef.current);
+        console.log("Observer attached to loadMoreRef");
+      }
+    }
+
+    // Cleanup observer on unmount or when dependencies change
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, data?.pages.length]);
+
+  const noProductsFound = data?.pages.every((page) => page === null);
 
   return (
     <Reorder.Item
@@ -220,10 +236,19 @@ export default function Product({
             <DialogTrigger asChild>
               <Button className="rounded-xs bg-white shadow-lg hover:bg-white text-[#00000080]  justify-between w-80 overflow-hidden">
                 <span className="truncate text-left">{getTriggerText()}</span>
+
                 <MdModeEditOutline className="flex-shrink-0" />
               </Button>
             </DialogTrigger>
             <DialogContent className="rounded-sm p-0">
+              {status === "pending" && (
+                <div className="p-4 text-center">Loading products...</div>
+              )}
+              {status === "error" && (
+                <div className="p-4 text-center text-red-500">
+                  Error loading products: {error.message}
+                </div>
+              )}
               <Card className="border-none shadow-none">
                 <CardHeader className="gap-3">
                   <DialogTitle className="font-semibold">
@@ -235,71 +260,115 @@ export default function Product({
                       type="search"
                       placeholder="Search"
                       className="pl-8"
+                      value={searchQuery}
+                      onChange={handleSearchChange}
                     />
                   </div>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-2.5">
-                  {data.map((dataProduct, index: number) => {
-                    const isProductChecked =
-                      selectedProductId === dataProduct.id;
-
-                    return (
-                      <Collapsible key={index}>
-                        <div className="flex items-center gap-2 justify-between">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id={`${dataProduct.id}`}
-                              className="h-6 w-6 text-white"
-                              checked={isProductChecked}
-                              onCheckedChange={(checked: boolean) => {
-                                handleProductSelect(dataProduct.id, checked);
-                              }}
-                            />
-                            <label
-                              htmlFor={`${dataProduct.id}`}
-                              className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {dataProduct?.title}
-                            </label>
-                          </div>
-                          <CollapsibleTrigger asChild>
-                            <Button
-                              variant={"outline"}
-                              size={"sm"}
-                              className="border-none shadow-none h-5 w-5 hover:bg-transparent"
-                            >
-                              <RiCollapseVerticalFill />
-                            </Button>
-                          </CollapsibleTrigger>
-                        </div>
-                        <CollapsibleContent className="flex flex-col gap-2 my-2">
-                          {dataProduct.variants.map(
-                            (variant, vIndex: number) => {
-                              const isVariantChecked =
-                                selectedVariantIds.includes(variant.id) &&
-                                isProductChecked;
+                <CardContent
+                  className="flex flex-col gap-2.5 max-h-[200px] overflow-y-auto search-area"
+                  ref={scrollContainerRef}
+                >
+                  {status === "success" && (
+                    <>
+                      {noProductsFound ? (
+                        <h2>No products found with the name {searchQuery}</h2>
+                      ) : (
+                        data.pages.map((page) => {
+                          return page?.map(
+                            (dataProduct: SelectedItem, index: number) => {
+                              const isProductChecked =
+                                selectedProductId === dataProduct.id;
 
                               return (
-                                <DialogVariant
-                                  key={vIndex}
-                                  variant={variant}
-                                  checked={isVariantChecked}
-                                  onVariantChange={(variantId, isChecked) =>
-                                    handleVariantChange(
-                                      variantId,
-                                      variant.product_id,
-                                      isChecked
-                                    )
-                                  }
-                                />
+                                <Collapsible key={index}>
+                                  <div className="flex items-center gap-2 justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox
+                                        id={`${dataProduct.id}`}
+                                        className="h-6 w-6 text-white"
+                                        checked={isProductChecked}
+                                        onCheckedChange={(checked: boolean) => {
+                                          handleProductSelect(
+                                            dataProduct.id,
+                                            checked
+                                          );
+                                        }}
+                                      />
+                                      <label
+                                        htmlFor={`${dataProduct.id}`}
+                                        className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                      >
+                                        {dataProduct?.title}
+                                      </label>
+                                    </div>
+                                    <CollapsibleTrigger asChild>
+                                      <Button
+                                        variant={"outline"}
+                                        size={"sm"}
+                                        className="border-none shadow-none h-5 w-5 hover:bg-transparent"
+                                      >
+                                        <RiCollapseVerticalFill />
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  </div>
+                                  <CollapsibleContent className="flex flex-col gap-2 my-2">
+                                    {dataProduct.variants.map(
+                                      (variant, index: number) => {
+                                        const isVariantChecked =
+                                          selectedVariantIds.includes(
+                                            variant.id
+                                          ) && isProductChecked;
+
+                                        return (
+                                          <DialogVariant
+                                            key={index}
+                                            variant={variant}
+                                            checked={isVariantChecked}
+                                            onVariantChange={(
+                                              variantId,
+                                              isChecked
+                                            ) =>
+                                              handleVariantChange(
+                                                variantId,
+                                                variant.product_id,
+                                                isChecked
+                                              )
+                                            }
+                                          />
+                                        );
+                                      }
+                                    )}
+                                  </CollapsibleContent>
+                                </Collapsible>
                               );
                             }
-                          )}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    );
-                  })}
+                          );
+                        })
+                      )}
+                    </>
+                  )}
+                  {!noProductsFound && (
+                    <div
+                      ref={loadMoreRef}
+                      className="py-2 text-center text-sm text-gray-500 mt-2"
+                    >
+                      <Button
+                        onClick={() => fetchNextPage()}
+                        disabled={!hasNextPage || isFetchingNextPage}
+                        variant={"outline"}
+                        className="text-black p-0 px-2 h-5 text-xs font-normal"
+                      >
+                        {isFetchingNextPage
+                          ? "Loading more products..."
+                          : hasNextPage
+                          ? "Load products"
+                          : "No more products to load"}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
+
                 <CardFooter className="justify-end gap-2">
                   <DialogClose className="p-1.5 rounded-lg hover:bg-gray-300 duration-200 cursor-pointer px-4">
                     Cancel

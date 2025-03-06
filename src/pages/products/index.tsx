@@ -12,11 +12,10 @@ import { Reorder } from "framer-motion";
 export interface ProductData {
   id: string;
   index: number;
-  selectedItem?: SelectedItem | null; // Store the selected item for each product
+  selectedItem?: SelectedItem | null;
 }
 
 export default function Products() {
-  // Initialize products with null selectedItem
   const [products, setProducts] = useState<ProductData[]>([
     { id: Date.now().toString(), index: 0, selectedItem: null },
   ]);
@@ -40,15 +39,16 @@ export default function Products() {
     setProducts(updatedProducts);
   };
 
-  // Update the selectedItem for a specific product
   const handleProductSelected = (
     productId: string,
     selectedItem: SelectedItem | null
   ) => {
     setProducts((prevProducts) =>
-      prevProducts.map((product) =>
-        product.id === productId ? { ...product, selectedItem } : product
-      )
+      prevProducts.map((product) => {
+        return product.id === productId
+          ? { ...product, selectedItem }
+          : product;
+      })
     );
   };
 

@@ -5,7 +5,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-// import { Reorder } from "framer-motion";
+
 import { useState } from "react";
 import { MdKeyboardArrowDown } from "react-icons/md";
 import { RiDraggable } from "react-icons/ri";
@@ -17,7 +17,6 @@ export default function ProductVariants({
   selectedItem: SelectedItem | null;
 }) {
   const [showVariants, setShowVariants] = useState(false);
-
   return (
     <Collapsible className="flex flex-col items-start">
       <CollapsibleTrigger asChild>
@@ -35,18 +34,6 @@ export default function ProductVariants({
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="w-[80%] m-auto">
-        {/* <Reorder.Group
-          axis="y"
-          values={products}
-          onReorder={handleReorder}
-          className="flex flex-col gap-3"
-        >
-          <Reorder.Item
-            value={product}
-            id={product.id}
-            dragListener={false}
-            dragControls={controls}
-          > */}
         {selectedItem?.variants.map((variant, index) => {
           return (
             <div className="flex items-center gap-2" key={index}>
@@ -72,9 +59,6 @@ export default function ProductVariants({
             </div>
           );
         })}
-
-        {/* </Reorder.Item>
-        </Reorder.Group> */}
       </CollapsibleContent>
     </Collapsible>
   );
