@@ -5,20 +5,17 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 // import { Reorder } from "framer-motion";
 import { useState } from "react";
 import { MdKeyboardArrowDown } from "react-icons/md";
 import { RiDraggable } from "react-icons/ri";
+import { SelectedItem } from "./product";
 
-export default function ProductVariants() {
+export default function ProductVariants({
+  selectedItem,
+}: {
+  selectedItem: SelectedItem | null;
+}) {
   const [showVariants, setShowVariants] = useState(false);
 
   return (
@@ -50,36 +47,32 @@ export default function ProductVariants() {
             dragListener={false}
             dragControls={controls}
           > */}
-        <div className="flex items-center gap-2">
-          <Button variant={"link"} className="!p-0">
-            <RiDraggable size={16} />
-          </Button>
-          <Input
-            type="text"
-            name="discount"
-            max={100}
-            placeholder="variant name "
-            className="min-w-max rounded-xs border-none shadow-md"
-          />
-          <Input
-            type="number"
-            name="discount"
-            max={100}
-            placeholder="1 - 100"
-            className="min-w-[100px] rounded-xs border-none shadow-md"
-          />
-          <Select defaultValue="percentage">
-            <SelectTrigger className="min-w-[100px] rounded-xs border-none shadow-md">
-              <SelectValue placeholder="Select a Value" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="percentage">% off</SelectItem>
-                <SelectItem value="flat">flat off</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
+        {selectedItem?.variants.map((variant, index) => {
+          return (
+            <div className="flex items-center gap-2" key={index}>
+              <Button variant={"link"} className="!p-0">
+                <RiDraggable size={16} />
+              </Button>
+              <Input
+                type="text"
+                name="discount"
+                max={100}
+                placeholder="variant name "
+                className="min-w-max rounded-xs border-none shadow-md"
+                defaultValue={variant.title}
+              />
+              <Input
+                type="number"
+                name="price"
+                max={100}
+                placeholder="1 - 100"
+                className="max-w-[100px] rounded-xs border-none shadow-md"
+                defaultValue={variant.price}
+              />
+            </div>
+          );
+        })}
+
         {/* </Reorder.Item>
         </Reorder.Group> */}
       </CollapsibleContent>

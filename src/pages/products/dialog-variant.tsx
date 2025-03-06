@@ -21,7 +21,7 @@ export default function Variant({
       <div className="flex items-center gap-2">
         <Checkbox
           id={`variant-${variant.id}`}
-          className="h-4 w-4"
+          className="h-4 w-4 text-white"
           checked={checked}
           onCheckedChange={(isChecked: boolean) =>
             onVariantChange(variant.id, isChecked)

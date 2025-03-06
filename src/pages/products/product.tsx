@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { RxCross2 } from "react-icons/rx";
-import Variant from "@/pages/products/dialog-variant";
+import DialogVariant from "@/pages/products/dialog-variant";
+import Variant from "@/pages/products/variants";
 
 const data = [
   {
@@ -111,12 +112,10 @@ export default function Product({
   const [showDiscount, setShowDiscount] = useState(false);
   const controls = useDragControls();
 
-  // Track selected item for this product
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(
     product.selectedItem || null
   );
 
-  // Track currently selected product and variants in the dialog
   const [selectedProductId, setSelectedProductId] = useState<number | null>(
     selectedItem?.id || null
   );
@@ -136,7 +135,6 @@ export default function Product({
     const productData = data.find((p) => p.id === selectedProductId);
 
     if (productData) {
-      // Create a product with only selected variants
       const productWithSelectedVariants = {
         ...productData,
         variants: productData.variants.filter((v) =>
@@ -144,7 +142,6 @@ export default function Product({
         ),
       };
 
-      // Only add if at least one variant is selected
       if (productWithSelectedVariants.variants.length > 0) {
         setSelectedItem(productWithSelectedVariants);
 
@@ -162,16 +159,12 @@ export default function Product({
   };
 
   const handleProductSelect = (productId: number, checked: boolean) => {
-    // Deselect previous product if a different one is selected
     if (checked) {
       setSelectedProductId(productId);
-
-      // Pre-select all variants of the selected product
       const productVariants =
         data.find((p) => p.id === productId)?.variants || [];
       setSelectedVariantIds(productVariants.map((v) => v.id));
     } else {
-      // If unchecked, clear the selection
       setSelectedProductId(null);
       setSelectedVariantIds([]);
     }
@@ -183,29 +176,25 @@ export default function Product({
     isChecked: boolean
   ) => {
     if (isChecked) {
-      // Add the variant to selected variants
       setSelectedVariantIds((prev) => [...prev, variantId]);
     } else {
-      // Remove the variant from selected variants
       setSelectedVariantIds((prev) => prev.filter((id) => id !== variantId));
     }
   };
 
-  // Handle removing the selected product
-  const handleRemoveProduct = () => {
-    setSelectedItem(null);
-    setSelectedProductId(null);
-    setSelectedVariantIds([]);
+  // // Handle removing the selected product
+  // const handleRemoveProduct = () => {
+  //   setSelectedItem(null);
+  //   setSelectedProductId(null);
+  //   setSelectedVariantIds([]);
 
-    if (onProductSelected) {
-      onProductSelected(null);
-    }
-  };
+  //   if (onProductSelected) {
+  //     onProductSelected(null);
+  //   }
+  // };
 
-  // Get display text for the trigger button
   const getTriggerText = () => {
     if (selectedItem) {
-      // Show product title if selected
       return selectedItem.title;
     }
     return "Select Product";
@@ -229,7 +218,7 @@ export default function Product({
           </div>
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="rounded-xs bg-white shadow-lg hover:bg-white text-[#00000080] min-w-60 justify-between w-full overflow-hidden">
+              <Button className="rounded-xs bg-white shadow-lg hover:bg-white text-[#00000080]  justify-between w-80 overflow-hidden">
                 <span className="truncate text-left">{getTriggerText()}</span>
                 <MdModeEditOutline className="flex-shrink-0" />
               </Button>
@@ -291,7 +280,7 @@ export default function Product({
                                 isProductChecked;
 
                               return (
-                                <Variant
+                                <DialogVariant
                                   key={vIndex}
                                   variant={variant}
                                   checked={isVariantChecked}
@@ -312,7 +301,9 @@ export default function Product({
                   })}
                 </CardContent>
                 <CardFooter className="justify-end gap-2">
-                  <DialogClose>Cancel</DialogClose>
+                  <DialogClose className="p-1.5 rounded-lg hover:bg-gray-300 duration-200 cursor-pointer px-4">
+                    Cancel
+                  </DialogClose>
                   <DialogClose asChild>
                     <Button className="text-white" onClick={handleAddSelection}>
                       Add
@@ -326,7 +317,7 @@ export default function Product({
             {!showDiscount && (
               <Button
                 variant={"default"}
-                className="text-white rounded-xs"
+                className="text-white rounded-xs min-w-[220px]"
                 onClick={() => setShowDiscount(!showDiscount)}
               >
                 Add Discount
@@ -334,7 +325,7 @@ export default function Product({
             )}
 
             {showDiscount && (
-              <div className="flex gap-3">
+              <div className="flex gap-3 w-[220px]">
                 <Input
                   type="number"
                   name="discount"
@@ -365,41 +356,7 @@ export default function Product({
             )}
           </div>
         </div>
-
-        {/* Display selected product */}
-        {selectedItem && (
-          <div className="ml-8 mt-3 mb-3">
-            <div className="flex items-center justify-between p-2 bg-gray-50 rounded mb-2 border border-gray-200">
-              <div className="flex items-center gap-2">
-                {selectedItem.image && (
-                  <img
-                    src={selectedItem.image.src}
-                    alt={selectedItem.title}
-                    className="w-10 h-10 object-cover rounded"
-                  />
-                )}
-                <div>
-                  <p className="font-medium text-sm">{selectedItem.title}</p>
-                  <div className="text-xs text-gray-600">
-                    {selectedItem.variants.map((variant, vidx) => (
-                      <span key={vidx} className="mr-2">
-                        {variant.title} - ${variant.price}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-red-500"
-                onClick={handleRemoveProduct}
-              >
-                <RxCross2 />
-              </Button>
-            </div>
-          </div>
-        )}
+        {selectedItem && <Variant selectedItem={selectedItem} />}
       </div>
     </Reorder.Item>
   );
