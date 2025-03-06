@@ -72,8 +72,8 @@ export default function Product({
     isFetchingNextPage,
     status,
   } = useInfiniteQuery({
-    queryKey: ["products", searchQuery], // Now using searchQuery directly
-    queryFn: ({ pageParam }) => getProducts({ pageParam, searchQuery }), // Pass searchQuery directly
+    queryKey: ["products", searchQuery],
+    queryFn: ({ pageParam }) => getProducts({ pageParam, searchQuery }),
     initialPageParam: 0,
     getNextPageParam: (_lastPage, allPages) => {
       if (1000 > allPages.length * 10) {
@@ -113,7 +113,6 @@ export default function Product({
       return;
     }
 
-    // Find the selected product from the data
     let foundProduct = null;
 
     data?.pages.forEach((page) => {
@@ -206,7 +205,6 @@ export default function Product({
       }
     }
 
-    // Cleanup observer on unmount or when dependencies change
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();

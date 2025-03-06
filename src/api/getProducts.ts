@@ -24,7 +24,7 @@ export async function getProducts({
       },
     });
 
-    return res.data; // Make sure to return data from the response
+    return res.data;
   } catch (error) {
     console.error("Error fetching products:", error);
     throw error;
